@@ -1,0 +1,78 @@
+BIGO BOARD — PROJECT HANDOFF NOTES
+=====================================
+(Handoff for the current build: html_20260822_b00605.html, titled "BigO
+Board — Algorithm Whiteboard")
+
+PROJECT
+-------
+A digital whiteboard for visualizing LeetCode problems — sketching data
+structures, tracing pointers, mapping recursion trees. Built for rough,
+fast thinking, not polished diagrams.
+
+STACK
+-----
+Single self-contained HTML file — HTML + inline CSS + inline vanilla JS.
+No build step, no dependencies. Open the file in a browser and it runs.
+(Note: this has since diverged from the earlier 3-file skeleton — index.html /
+style.css / app.js — into one merged file. Treat this HTML file as the
+current source of truth going forward, not the earlier split version.)
+
+CURRENT STATE — this build is well past the walking-skeleton stage
+---------------------------------------------------------------------
+Working:
+- Three distinct pens (Structure / Detail / Accent, each its own stroke
+  width) plus a Highlighter (translucent, wide) — mapped to keys S/D/A/H
+- Pan tool (V) — space+drag or middle-mouse also pans; touch support
+  (touchstart/move/end handlers) for mobile/tablet use
+- Real eraser (E) — does actual hit-testing and removal via
+  `eraseAtPoints`, not a paint-over hack
+- Text tool (T) — multi-line via textarea overlay, committed to canvas
+- Infinite canvas with scroll-to-pan, scroll-to-zoom, and a live zoom %
+  indicator (top-right); Ctrl+0 resets the view
+- Shift-held = straight-line mode (locks a stroke to a straight segment)
+- Full undo/redo (Ctrl+Z / Ctrl+Shift+Z or Ctrl+Y), snapshot-based, capped
+  at 100 steps
+- 8-color swatch palette (dark, gray, blue, red, orange, green, purple,
+  yellow) instead of a raw color picker
+- Persistence — auto-saves strokes/text to localStorage
+  (`bigoboard-state-v1`) via `scheduleSave`, restores on load via
+  `loadSavedState`. Refreshing the page no longer wipes the board.
+- Dot grid background that scales sensibly with zoom
+- First-run hint overlay ("Draw · Drag to pan · Scroll to zoom · T for
+  text") that fades after first interaction or ~6s
+- Fully responsive toolbar (horizontal scroll on narrow screens, smaller
+  buttons under 600px)
+
+Known gaps / not yet built:
+- No shape tools (rectangle, arrow, circle-node) — still the most useful
+  next addition specifically for tree/graph problem sketches
+- No export (PNG/JSON) or multi-board support — one board, one
+  localStorage slot, no way to save/share a specific sketch elsewhere
+- No image/screenshot import (e.g. pasting a LeetCode problem screenshot
+  to annotate over)
+- Eraser radius is fixed — no size control in the toolbar yet
+
+NEXT STEPS (priority order)
+------------------------------
+1. Shape tools — rectangle + arrow + a "node" helper (circle + centered
+   label) drawn the same way strokes are (drag from start to end point).
+   This is the highest-value addition for actually diagramming trees,
+   linked lists, and graphs.
+2. Export — "Save as PNG" (canvas.toDataURL) and/or "Export JSON" (dump
+   strokes/texts array) so a specific board can be kept outside
+   localStorage or shared.
+3. Multiple boards — namespace the localStorage key per board
+   (`bigoboard-state-v1:<boardId>`) with a simple board switcher, so
+   different problems don't overwrite each other.
+4. Image paste/import — let a LeetCode screenshot be dropped onto the
+   canvas as a background layer to annotate over directly.
+5. Polish — adjustable eraser size, more color swatches or a custom
+   picker fallback, keyboard-shortcut cheat sheet.
+
+HOW TO CONTINUE ELSEWHERE
+----------------------------
+Bring html_20260822_b00605.html (the whole file — it's self-contained)
+plus this note as context. Build one item from "Next steps" at a time,
+test manually in-browser after each, before starting the next. Shape
+tools (item 1) is the natural next slice — everything else in the file
+already works end-to-end.
