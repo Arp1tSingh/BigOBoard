@@ -738,6 +738,14 @@
                     const first = stroke.points[0];
                     stroke.points = [{ x: first.x, y: first.y }, { x, y }];
                 } else {
+                    // Ignore micro-jitters by enforcing a minimum distance between points
+                    if (stroke.points.length > 0) {
+                        const last = stroke.points[stroke.points.length - 1];
+                        const dist = Math.hypot(x - last.x, y - last.y) * viewScale;
+                        if (dist < 4) {
+                            return; // Point is too close, ignore it to smooth the line
+                        }
+                    }
                     stroke.points.push({ x, y });
                 }
             }
