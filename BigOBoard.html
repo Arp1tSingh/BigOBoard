@@ -518,7 +518,7 @@
                 isSmartDrawEnabled = e.target.checked;
             });
         }
-        updateToolUI();
+        setTool(currentTool);
         updateHistoryButtons();
         updateCanvasCursor();
         updateZoomIndicator();
@@ -1294,18 +1294,18 @@
     function bindEvents() {
         window.addEventListener('resize', resizeCanvas);
         window.addEventListener('keydown', handleKeyDown); window.addEventListener('keyup', handleKeyUp);
-        canvas.addEventListener('mousedown', (e) => {
+        canvas.addEventListener('pointerdown', (e) => {
             if (isSpacePanning) return; // Ignore space pan events here for simplicity in this rewrite, or handle cleanly.
             handlePointerDown(e);
         });
-        canvas.addEventListener('mousemove', (e) => {
+        canvas.addEventListener('pointermove', (e) => {
             const rect = canvas.getBoundingClientRect(); lastMouseX = e.clientX - rect.left; lastMouseY = e.clientY - rect.top;
             if (isAltHeld) render();
             if (isSpacePanning) return;
             handlePointerMove(e);
         });
-        canvas.addEventListener('mouseup', handlePointerUp);
-        canvas.addEventListener('mouseleave', () => {
+        canvas.addEventListener('pointerup', handlePointerUp);
+        canvas.addEventListener('pointerleave', () => {
             if (isDrawing && currentStroke) finalizeStroke();
             if (isPanning) { isPanning = false; canvas.classList.remove('panning'); }
             if (isDragging) { isDragging = false; snapGuides = []; render(); }
@@ -1326,4 +1326,6 @@
     </script>
 </body>
 </html>
+
+
 
