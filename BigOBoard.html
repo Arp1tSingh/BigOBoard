@@ -884,15 +884,45 @@
                     if (p.x > maxX) maxX = p.x; if (p.y > maxY) maxY = p.y;
                 });
                 const w = maxX - minX, h = maxY - minY;
-                const aspect = w / h;
-                pushUndoSnapshot();
-                if (aspect > 0.85 && aspect < 1.15) {
-                    const r = Math.max(w, h) / 2;
-                    elements.push({ id: genId(), type: 'node', shape: 'circle', x: minX + w/2, y: minY + h/2, w: r*2, h: r*2, color: currentStroke.color, width: currentStroke.width });
-                } else {
-                    elements.push({ id: genId(), type: 'node', shape: 'rectangle', x: minX, y: minY, w: w, h: h, color: currentStroke.color, width: currentStroke.width });
+                
+                let sumDistToBox = 0;
+                let sumDistToCenter = 0;
+                const cx = minX + w/2, cy = minY + h/2;
+                
+                pts.forEach(p => {
+                    const dX = Math.min(Math.abs(p.x - minX), Math.abs(maxX - p.x));
+                    const dY = Math.min(Math.abs(p.y - minY), Math.abs(maxY - p.y));
+                    sumDistToBox += Math.min(dX, dY);
+                    sumDistToCenter += Math.hypot(p.x - cx, p.y - cy);
+                });
+                
+                const avgDistToBox = sumDistToBox / pts.length;
+                const avgDistToCenter = sumDistToCenter / pts.length;
+                const diag = Math.hypot(w, h) || 1;
+                const r = Math.max(w, h) / 2 || 1;
+                
+                const circleError = Math.abs(avgDistToCenter - r) / r;
+                const rectError = avgDistToBox / diag;
+                const aspect = Math.max(w/h, h/w);
+
+                let recognizedShape = null;
+                const isSquareEnough = aspect < 1.35;
+                
+                if (rectError < 0.10 && (!isSquareEnough || rectError < circleError)) {
+                    recognizedShape = 'rectangle';
+                } else if (isSquareEnough && circleError < 0.15) {
+                    recognizedShape = 'circle';
                 }
-                currentStroke = null; scheduleSave(); render(); return;
+
+                if (recognizedShape) {
+                    pushUndoSnapshot();
+                    if (recognizedShape === 'circle') {
+                        elements.push({ id: genId(), type: 'node', shape: 'circle', x: cx, y: cy, w: r*2, h: r*2, color: currentStroke.color, width: currentStroke.width });
+                    } else {
+                        elements.push({ id: genId(), type: 'node', shape: 'rectangle', x: minX, y: minY, w: w, h: h, color: currentStroke.color, width: currentStroke.width });
+                    }
+                    currentStroke = null; scheduleSave(); render(); return;
+                }
             }
         }
 
