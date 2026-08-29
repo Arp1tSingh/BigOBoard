@@ -1054,8 +1054,15 @@
     }
 
     // â”€â”€â”€ Eraser â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    function distToSegment(p, v, w) {
+        const l2 = (v.x - w.x) ** 2 + (v.y - w.y) ** 2;
+        if (l2 === 0) return Math.hypot(p.x - v.x, p.y - v.y);
+        let t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2;
+        t = Math.max(0, Math.min(1, t));
+        return Math.hypot(p.x - (v.x + t * (w.x - v.x)), p.y - (v.y + t * (w.y - v.y)));
+    }
+
     function eraseAtPoints(points, eraserRadius) {
-        // Simplified eraser for now, just filtering out elements based on bounding boxes or points
         const toRemove = new Set();
         for (const el of elements) {
             for (const ep of points) {
@@ -1064,11 +1071,44 @@
                 } else if (el.type === 'text') {
                     if (isPointInText(ep.x, ep.y, el)) toRemove.add(el.id);
                 } else if (el.type === 'edge') {
-                    toRemove.add(el.id); // Removing edges is tricky without hit testing the ray, just leave it simple or rely on deleting nodes (which orphans them... wait we need to delete orphaned edges)
-                } else if (el.type === 'stroke') {
-                    for (const pt of el.points) {
-                        if (Math.hypot(ep.x - pt.x, ep.y - pt.y) < eraserRadius) { toRemove.add(el.id); break; }
+                    const startNode = elements.find(n => n.id === el.startNodeId);
+                    const endNode = elements.find(n => n.id === el.endNodeId);
+                    if (startNode && endNode) {
+                        let scx = startNode.shape === 'circle' ? startNode.x : startNode.x + startNode.w / 2;
+                        let scy = startNode.shape === 'circle' ? startNode.y : startNode.y + startNode.h / 2;
+                        let ecx = endNode.shape === 'circle' ? endNode.x : endNode.x + endNode.w / 2;
+                        let ecy = endNode.shape === 'circle' ? endNode.y : endNode.y + endNode.h / 2;
+                        if (distToSegment(ep, {x: scx, y: scy}, {x: ecx, y: ecy}) < eraserRadius + 4) {
+                            toRemove.add(el.id);
+                        }
+                    } else {
+                        toRemove.add(el.id); // orphan
                     }
+                } else if (el.type === 'stroke') {
+                    let hit = false;
+                    if (el.points.length === 0) continue;
+                    
+                    if (el.tool === TOOLS.RECTANGLE && el.points.length >= 2) {
+                        const p1 = el.points[0], p2 = el.points[1];
+                        if (distToSegment(ep, {x:p1.x, y:p1.y}, {x:p2.x, y:p1.y}) < eraserRadius + 4 ||
+                            distToSegment(ep, {x:p2.x, y:p1.y}, {x:p2.x, y:p2.y}) < eraserRadius + 4 ||
+                            distToSegment(ep, {x:p2.x, y:p2.y}, {x:p1.x, y:p2.y}) < eraserRadius + 4 ||
+                            distToSegment(ep, {x:p1.x, y:p2.y}, {x:p1.x, y:p1.y}) < eraserRadius + 4) hit = true;
+                    } else if (el.tool === TOOLS.NODE && el.points.length >= 2) {
+                        const p1 = el.points[0], p2 = el.points[1];
+                        const r = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+                        const d = Math.hypot(ep.x - p1.x, ep.y - p1.y);
+                        if (Math.abs(d - r) < eraserRadius + 4) hit = true;
+                    } else {
+                        // For freehand lines, arrows, etc.
+                        for (let i = 0; i < el.points.length - 1; i++) {
+                            if (distToSegment(ep, el.points[i], el.points[i+1]) < eraserRadius + 4) { hit = true; break; }
+                        }
+                        if (!hit && el.points.length === 1) {
+                            if (Math.hypot(ep.x - el.points[0].x, ep.y - el.points[0].y) < eraserRadius) hit = true;
+                        }
+                    }
+                    if (hit) toRemove.add(el.id);
                 }
                 if (toRemove.has(el.id)) break;
             }
@@ -1076,7 +1116,6 @@
         if (toRemove.size > 0) {
             pushUndoSnapshot();
             elements = elements.filter(el => !toRemove.has(el.id));
-            // Remove orphaned edges
             const nodeIds = new Set(elements.filter(e => e.type === 'node').map(n => n.id));
             elements = elements.filter(el => el.type !== 'edge' || (nodeIds.has(el.startNodeId) && nodeIds.has(el.endNodeId)));
             scheduleSave();
