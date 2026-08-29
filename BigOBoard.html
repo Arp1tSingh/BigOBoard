@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -505,6 +505,7 @@
     let isPinching = false;
     let pinchStartDistance = 0, pinchStartScale = 1;
     let pinchMidX = 0, pinchMidY = 0;
+    let pointerCache = [];
 
     let saveTimeout = null;
 
@@ -1294,22 +1295,63 @@
     function bindEvents() {
         window.addEventListener('resize', resizeCanvas);
         window.addEventListener('keydown', handleKeyDown); window.addEventListener('keyup', handleKeyUp);
+        
         canvas.addEventListener('pointerdown', (e) => {
-            if (isSpacePanning) return; // Ignore space pan events here for simplicity in this rewrite, or handle cleanly.
-            handlePointerDown(e);
+            pointerCache.push(e);
+            if (isSpacePanning) return;
+            if (pointerCache.length === 2) {
+                isPinching = true;
+                pinchStartDistance = Math.hypot(pointerCache[0].clientX - pointerCache[1].clientX, pointerCache[0].clientY - pointerCache[1].clientY);
+                const rect = canvas.getBoundingClientRect();
+                pinchMidX = (pointerCache[0].clientX + pointerCache[1].clientX) / 2 - rect.left;
+                pinchMidY = (pointerCache[0].clientY + pointerCache[1].clientY) / 2 - rect.top;
+                
+                isDrawing = false; isPanning = false; isDragging = false;
+                if (currentStroke) finalizeStroke();
+                canvas.classList.remove('panning');
+                return;
+            }
+            if (pointerCache.length === 1) handlePointerDown(e);
         });
+        
         canvas.addEventListener('pointermove', (e) => {
+            const index = pointerCache.findIndex(p => p.pointerId === e.pointerId);
+            if (index !== -1) pointerCache[index] = e;
+
+            if (pointerCache.length === 2 && isPinching) {
+                const dist = Math.hypot(pointerCache[0].clientX - pointerCache[1].clientX, pointerCache[0].clientY - pointerCache[1].clientY);
+                if (pinchStartDistance > 0) {
+                    zoomAt(pinchMidX, pinchMidY, dist / pinchStartDistance); 
+                    pinchStartDistance = dist;
+                }
+                return;
+            }
+            
             const rect = canvas.getBoundingClientRect(); lastMouseX = e.clientX - rect.left; lastMouseY = e.clientY - rect.top;
             if (isAltHeld) render();
             if (isSpacePanning) return;
-            handlePointerMove(e);
+            if (!isPinching && pointerCache.length === 1) handlePointerMove(e);
         });
-        canvas.addEventListener('pointerup', handlePointerUp);
-        canvas.addEventListener('pointerleave', () => {
+
+        const handlePointerUpEvent = (e) => {
+            const index = pointerCache.findIndex(p => p.pointerId === e.pointerId);
+            if (index !== -1) pointerCache.splice(index, 1);
+            if (pointerCache.length < 2) isPinching = false;
+            
+            if (pointerCache.length === 0) handlePointerUp(e);
+        };
+        
+        canvas.addEventListener('pointerup', handlePointerUpEvent);
+        canvas.addEventListener('pointercancel', handlePointerUpEvent);
+        canvas.addEventListener('pointerout', handlePointerUpEvent);
+        
+        canvas.addEventListener('pointerleave', (e) => {
+            handlePointerUpEvent(e);
             if (isDrawing && currentStroke) finalizeStroke();
             if (isPanning) { isPanning = false; canvas.classList.remove('panning'); }
             if (isDragging) { isDragging = false; snapGuides = []; render(); }
         });
+        
         canvas.addEventListener('wheel', handleWheel, { passive: false });
         textInput.addEventListener('blur', commitText);
         document.querySelectorAll('.tb-btn[data-tool]').forEach(btn => btn.addEventListener('click', () => setTool(btn.dataset.tool)));
