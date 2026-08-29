@@ -885,7 +885,7 @@
                 const w = maxX - minX, h = maxY - minY;
                 const aspect = w / h;
                 pushUndoSnapshot();
-                if (aspect > 0.7 && aspect < 1.4) {
+                if (aspect > 0.85 && aspect < 1.15) {
                     const r = Math.max(w, h) / 2;
                     elements.push({ id: genId(), type: 'node', shape: 'circle', x: minX + w/2, y: minY + h/2, w: r*2, h: r*2, color: currentStroke.color, width: currentStroke.width });
                 } else {
